@@ -21,10 +21,11 @@ import java.util.List;
 public class WebSocketController {
 
     private static MongoClient client = null;
+    private MongoDatabase db = null;
     public MongoCollection collection = null;
     /**
      * Open user's session.
-     * @param user The user whose session is opened.
+     * @param session The user whose session is opened.
      */
     @OnWebSocketConnect
     public void onConnect(Session session) {
@@ -32,7 +33,7 @@ public class WebSocketController {
         System.out.println("connect");
         try {
             this.client = MongoClients.create("mongodb+srv://zzzpdm:1317@cluster0.1ypxs.mongodb.net/myFirstDatabase?retryWrites=true&w=majority");
-            MongoDatabase db = this.client.getDatabase("testdb");
+            this.db = this.client.getDatabase("testdb");
             this.collection = db.getCollection("test");
             System.out.println("Connect to database successfully");
         } catch (Exception e) {
@@ -42,7 +43,7 @@ public class WebSocketController {
 
     /**
      * Close the user's session.
-     * @param user The use whose session is closed.
+     * @param session The use whose session is closed.
      */
     @OnWebSocketClose
     public void onClose(Session session, int statusCode, String reason) {
@@ -53,7 +54,7 @@ public class WebSocketController {
 
     /**
      * Send request from view.
-     * @param user The session user sending the message.
+     * @param session The session user sending the message.
      * @param message The request to be executed.
      */
     @OnWebSocketMessage
@@ -67,8 +68,9 @@ public class WebSocketController {
                 DispatchAdapter.getInstance().getFiles(session);
                 break;
             case "file":
+                int dataSize = obj.get("dataSize").getAsInt();
                 JsonElement filedata = obj.get("data");
-                DispatchAdapter.getInstance().CreateData(session, this.collection, filename, filedata);
+                DispatchAdapter.getInstance().CreateData(session, this.collection, filename, filedata, dataSize);
                 break;
             case "field_size":
                 DispatchAdapter.getInstance().send_data_size_fields(session, filename);

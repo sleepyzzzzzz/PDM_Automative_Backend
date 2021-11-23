@@ -1,35 +1,29 @@
 package model;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mongodb.BasicDBObject;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
-import com.mongodb.client.model.Filters;
+import com.mongodb.client.MongoDatabase;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.eclipse.jetty.websocket.api.Session;
 import redis.clients.jedis.Jedis;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 public class Data {
     private String name;
     private int data_size;
-    public ArrayList<Document> data;
     private List<String> fields;
     private Boolean file_end;
 
-    public Data(String name) {
+    public Data(String name, int data_size) {
         this.name = name;
-        this.data_size = 0;
-        this.data = new ArrayList<Document>();
+        this.data_size = data_size;
         this.fields = new ArrayList<String>();
         this.file_end = false;
     }
@@ -37,6 +31,8 @@ public class Data {
     public List<String> getFields()  {
         return this.fields;
     }
+
+    private int getData_size() {return 10000000;}
 
     public Boolean getFile_end() {
         return this.file_end;
@@ -46,17 +42,13 @@ public class Data {
         this.fields = fields;
     }
 
-    private void setDataSize() {
-        this.data_size = this.data.size();
-    }
-
-    private void setFile_end() {
-        this.file_end = true;
+    public void setFile_end(Boolean end) {
+        this.file_end = end;
     }
 
     public void add_data(String data, MongoCollection collection) {
         List<String> dataarr = Arrays.asList(data.split(",", -1));
-        if (this.fields.size() == 0) {
+        if (this.getFields().size() == 0) {
             this.setfields(dataarr);
         }
         else {
@@ -66,37 +58,31 @@ public class Data {
             for (int i = 0; i < this.fields.size(); i++) {
                 doc.append(this.fields.get(i), dataarr.get(i));
             }
-//            this.data.add(doc);
+            System.out.println("here");
             collection.insertOne(doc);
-            this.data_size += 1;
         }
     }
 
     public int get_data_size() {
-//        this.setDataSize();
-        this.setFile_end();
-        return this.data_size;
+        this.setFile_end(true);
+        return this.getData_size();
     }
 
-    public List<Document> get_data(int page) {
-        return this.data.subList(0,51);
-    }
-
-    public void search(Session session, MongoCollection collection, Map<String, String> keys, Integer page) {
+    public void search(Session session, MongoCollection collection, Map<String, String> keys, int page) {
         ArrayList<JsonObject> res = new ArrayList<JsonObject>();
-        int idx = 0;
+        int idx = page * 20;
         BasicDBObject whereQuery = new BasicDBObject();
         MongoCursor<Document> cursor;
         whereQuery.put("filename", this.name);
         if (keys.size() == 0) {
-            cursor = collection.find(whereQuery).skip(20 * page).limit(20).iterator();
+            cursor = collection.find(whereQuery).sort(new BasicDBObject("_id",1)).skip(20* page).limit(20).iterator();
         }
         else {
             for (Map.Entry<String, String> entry: keys.entrySet()) {
                 String pattern = ".*" + entry.getValue() + ".*";
                 whereQuery.put(entry.getKey(), new BasicDBObject("$regex", pattern));
             }
-            cursor = collection.find(whereQuery).skip(20 * page).limit(20).iterator();
+            cursor = collection.find(whereQuery).sort(new BasicDBObject("_id",1)).skip(20 * page).limit(20).iterator();
         }
         try {
             while (cursor.hasNext()) {
